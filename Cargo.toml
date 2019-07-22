@@ -1,0 +1,16 @@
+[package]
+name = "tarnish"
+version = "0.1.0"
+authors = ["joshua"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+select = "*"
+reqwest = "*"
+sha2 = "*"
+hex = "*"
+serde = "*"
+serde_json = "*"
+
