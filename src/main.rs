@@ -117,7 +117,7 @@ struct Product {
     downloaded: bool,
     human_name: String,
     humble_original: Option<bool>, // can be null
-    image: String, // can be null
+    image: String,
     logo: Option<String>,
     #[serde(rename = "machine_name")]
     machine_name: String,
@@ -195,13 +195,25 @@ fn main() {
         println!("{}", product.human_name);
     }
     let local_root = Path::new("./trove");
+    assert!(local_root.exists());
     println!("All:");
+    let mut count = 0;
     for product in &mut data.standard_products {
-        let installer = &product.downloads["windows"].url.web;
-        println!("{} {} {}", product.date_added, product.human_name, installer);
+        let installer = Path::new(&product.downloads["windows"].url.web).file_name().unwrap().to_str().unwrap();
         product.downloaded = local_root.join(installer).exists();
+        if product.downloaded { count += 1; }
+        println!("{} {} {} {}", product.date_added, product.human_name, installer, product.downloaded);
+        cache.retrieve(&product.image);
     }
-    println!("{}", &data.standard_products.len());
+    let downloads = Path::new("c./downloads");
+    assert!(downloads.exists());
+    for product in &data.standard_products {
+        let installer = Path::new(&product.downloads["windows"].url.web).file_name().unwrap().to_str().unwrap();
+        if downloads.join(&installer).exists() {
+            println!("Stray download {:?} {:?}", downloads, installer);
+        }
+    }
+    println!("Downloaded: {}; Total: {}", &count, &data.standard_products.len());
     //let data: Map<String, Value> = serde_json::from_str(data.as_str()).unwrap();
     //data.keys().for_each(|k| println!("{}", k));
     //println!("{}", data.has_key("displayItemData"));
