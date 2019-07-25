@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use select::document::Document;
 use select::predicate::{Attr};//, Class, Name, Predicate, Element};
 use std::path::{Path};
-//use cache::{Cache};
+use crate::config::{Config};
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -103,8 +103,8 @@ pub struct Trove {
 }
 
 impl Trove {
-    pub fn new() {
-        let cache = Cache::new("./cache");
+    pub fn new(config: &Config) {
+        let cache = Cache::new(&config.system.cache);
         let text = cache.retrieve("https://www.humblebundle.com/monthly/trove");
         let doc = Document::from(text.as_str());
         let data = doc.find(Attr("id", "webpack-monthly-trove-data")).next().unwrap().text();
@@ -117,7 +117,7 @@ impl Trove {
         for product in &data.newly_added {
             println!("{}", product.human_name);
         }
-        let local_root = Path::new("./trove");
+        let local_root = &config.trove.root;
         assert!(local_root.exists());
         println!("All:");
         let mut count = 0;
@@ -128,7 +128,7 @@ impl Trove {
             println!("{} {} {} {}", product.date_added, product.human_name, installer, product.downloaded);
             cache.retrieve(&product.image);
         }
-        let downloads = Path::new("c./downloads");
+        let downloads = Path::new(&config.system.downloads);
         assert!(downloads.exists());
         for product in &data.standard_products {
             let installer = Path::new(&product.downloads["windows"].url.web).file_name().unwrap().to_str().unwrap();

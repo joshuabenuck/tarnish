@@ -15,8 +15,8 @@ pub struct Cache {
 }
 
 impl Cache {
-    pub fn new(root: &str) -> Cache {
-        let cache = Cache { root: Path::new(root).to_path_buf() };
+    pub fn new<T: Into<PathBuf>>(root: T) -> Cache {
+        let cache = Cache { root: root.into() };
         if ! cache.root.exists() {
             println!("creating: {}", cache.root.display());
             if let Err(result) = fs::create_dir_all(&cache.root) {

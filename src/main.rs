@@ -6,10 +6,12 @@ extern crate serde;
 
 mod cache;
 mod trove;
+mod config;
 
 //use std::str;
 //use std::fs::{self};//, DirEntry};
 use trove::{Trove};
+use config::{Config};
 
 //https://www.humblebundle.com/monthly/p/july_2019_monthly
 
@@ -39,7 +41,8 @@ struct Game {
 
 fn main() {
     println!("Hello, world!");
-    Trove::new();
+    let config = Config::new("./config.toml");
+    Trove::new(&config);
     //let data: Map<String, Value> = serde_json::from_str(data.as_str()).unwrap();
     //data.keys().for_each(|k| println!("{}", k));
     //println!("{}", data.has_key("displayItemData"));
