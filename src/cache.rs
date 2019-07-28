@@ -1,8 +1,10 @@
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 extern crate sha2;
 use sha2::{Digest};
 use std::io::{Read, Write};
 use std::fs::{File, self};
+extern crate log;
+use log::{debug, error};
 
 fn sha256(url: &str) -> String {
     let mut hasher = sha2::Sha256::new();
@@ -18,9 +20,9 @@ impl Cache {
     pub fn new<T: Into<PathBuf>>(root: T) -> Cache {
         let cache = Cache { root: root.into() };
         if ! cache.root.exists() {
-            println!("creating: {}", cache.root.display());
+            debug!("creating: {}", cache.root.display());
             if let Err(result) = fs::create_dir_all(&cache.root) {
-                println!("error: {:?}", result);
+                error!("error: {:?}", result);
             }
         }
         return cache;
@@ -29,10 +31,10 @@ impl Cache {
     pub fn retrieve(&self, url: &str) -> String {
         let hash = sha256(url);
         let cached = self.root.join(&hash);
-        println!("{:?}", hash);
+        debug!("{:?}", hash);
         if ! cached.exists() {
             // TODO: Add cache expiration
-            println!("caching: {}", url);
+            debug!("caching: {}", url);
             let mut resp = reqwest::get(url).unwrap();
             assert!(resp.status().is_success());
             let text = resp.text().unwrap();
@@ -41,7 +43,7 @@ impl Cache {
             text
         }
         else {
-            println!("using cached value: {}", &url);
+            debug!("using cached value: {}", &url);
             let mut contents = String::new();
             File::open(cached).unwrap().read_to_string(&mut contents).unwrap();
             contents

@@ -1,48 +1,33 @@
+extern crate hex;
+extern crate log;
 extern crate reqwest;
 extern crate select;
-extern crate hex;
-extern crate serde_json;
 extern crate serde;
+extern crate serde_json;
+extern crate simple_logger;
 
 mod cache;
-mod trove;
 mod config;
+mod library;
+mod trove;
 
 //use std::str;
 //use std::fs::{self};//, DirEntry};
-use trove::{Trove};
-use config::{Config};
+use config::Config;
+use library::{Game, Library};
+use trove::Trove;
 
 //https://www.humblebundle.com/monthly/p/july_2019_monthly
 
-struct Library {
-    games: Vec<Game>
-}
-
-enum Launcher {
-    Ubisoft,
-    Twitch,
-    Steam,
-    Monthly,
-    Trove,
-}
-
-struct Game {
-    human_name: String,
-    machine_name: String,
-    installer: Option<String>,
-    installed: bool,
-    process: String,
-    icon: String,
-    screenshots: Option<Vec<String>>,
-    trailer: Option<String>,
-    launcer: Launcher,
-}
-
 fn main() {
-    println!("Hello, world!");
+    simple_logger::init_with_level(log::Level::Error).unwrap();
     let config = Config::new("./config.toml");
-    Trove::new(&config);
+    let mut trove = Trove::new(&config);
+    let stray = trove.stray_downloads();
+    println!("In downloads: {}", stray.len());
+    trove.move_downloads();
+    trove.update_download_status();
+    let games: Vec<Game> = (&trove).into();
     //let data: Map<String, Value> = serde_json::from_str(data.as_str()).unwrap();
     //data.keys().for_each(|k| println!("{}", k));
     //println!("{}", data.has_key("displayItemData"));

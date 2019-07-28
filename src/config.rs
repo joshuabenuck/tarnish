@@ -1,9 +1,9 @@
 extern crate toml;
 
-use serde::{Deserialize};
+use serde::Deserialize;
 use std::fs::File;
-use std::io::{Read};
-use std::path::{PathBuf};
+use std::io::Read;
+use std::path::PathBuf;
 
 #[derive(Deserialize)]
 pub struct Trove {
@@ -25,9 +25,10 @@ pub struct Config {
 impl Config {
     pub fn new(path: &str) -> Config {
         let mut contents = String::new();
-        File::open(path).unwrap().read_to_string(&mut contents).unwrap();
+        File::open(path)
+            .unwrap()
+            .read_to_string(&mut contents)
+            .unwrap();
         return toml::from_str(contents.as_str()).unwrap();
     }
-
-
 }
