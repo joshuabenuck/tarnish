@@ -1,6 +1,7 @@
 extern crate hex;
 extern crate log;
 extern crate reqwest;
+extern crate rustyline;
 extern crate select;
 extern crate serde;
 extern crate serde_json;
@@ -10,14 +11,44 @@ mod cache;
 mod config;
 mod library;
 mod trove;
+mod trove_feed;
 
 //use std::str;
 //use std::fs::{self};//, DirEntry};
 use config::Config;
-use library::{Game, Library};
 use trove::Trove;
+use std::process::Command;
+use rustyline::error::ReadlineError;
+use rustyline::Editor;
 
-//https://www.humblebundle.com/monthly/p/july_2019_monthly
+
+/*
+ * Sketch of API
+ * use icli::{ICLI, Cmd};
+ *
+ * struct ICLI {
+ *   history: Vec<String>,
+ *   prompt: String,
+ * }
+ *
+ * enum CResult {
+ *   Subshell(icli),
+ *   Ok(String),
+ *   Err(error),
+ * }
+ *
+ * trait Cmd {
+ *  fn name() -> String;
+ *  fn execute(Vec<&str> args) -> CResult;
+ * }
+ *
+ * let cli = ICLI::new()
+ *  .add(trove.cmds)
+ *  .add(steam.cmds)
+ *  .add(monthly.cmds)
+ *  .add(downloader.cmds);
+ * cli.run();
+ */
 
 fn main() {
     simple_logger::init_with_level(log::Level::Error).unwrap();
@@ -27,7 +58,67 @@ fn main() {
     println!("In downloads: {}", stray.len());
     trove.move_downloads();
     trove.update_download_status();
-    let games: Vec<Game> = (&trove).into();
+    let mut rl = rustyline::Editor::<()>::new();
+
+    // `()` can be used when no completer is required
+    let mut rl = Editor::<()>::new();
+    if rl.load_history(".tarnish-history").is_err() {
+        println!("No previous history.");
+    }
+    loop {
+        let readline = rl.readline(">> ");
+        match readline {
+            Ok(line) => {
+                let mut words = line.split_ascii_whitespace();
+                match words.next() {
+                    Some("update") => {
+                        trove.update_download_status();
+                    }
+                    Some("download") => {
+                        let number: usize = words.next().unwrap().parse::<usize>().unwrap();
+                        let product = trove.not_downloaded()[number];
+                        println!("Downloading: {}", trove.format(product));
+                        let chrome = Command::new(r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe")
+                            .arg(trove.root.join(&product.downloads["windows"].url.web))
+                            .status()
+                            .expect("Failed to launch Chrome.");
+                    }
+                    Some("downloaded") => {
+                        trove
+                            .downloaded()
+                            .iter()
+                            .zip(0..)
+                            .for_each(|(p, i)| println!("{} {}", i, trove.format(p)));
+                    }
+                    Some("not_downloaded") => {
+                        trove
+                            .not_downloaded()
+                            .iter()
+                            .zip(0..)
+                            .for_each(|(p, i)| println!("{} {}", i, trove.format(p)));
+                    }
+                    Some("exit") => break,
+                    Some(_) => {}
+                    None => break,
+                }
+                rl.add_history_entry(line.as_str());
+                println!("Line: {}", line);
+            }
+            Err(ReadlineError::Interrupted) => {
+                println!("CTRL-C");
+                break;
+            }
+            Err(ReadlineError::Eof) => {
+                println!("CTRL-D");
+                break;
+            }
+            Err(err) => {
+                println!("Error: {:?}", err);
+                break;
+            }
+        }
+    }
+    rl.save_history(".tarnish-history").unwrap();
     //let data: Map<String, Value> = serde_json::from_str(data.as_str()).unwrap();
     //data.keys().for_each(|k| println!("{}", k));
     //println!("{}", data.has_key("displayItemData"));

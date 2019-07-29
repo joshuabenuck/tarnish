@@ -16,4 +16,4 @@ serde_json = "*"
 toml = "*"
 log = "*"
 simple_logger = "*"
-
+rustyline = "*"

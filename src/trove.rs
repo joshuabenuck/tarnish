@@ -1,126 +1,41 @@
 use crate::cache::Cache;
+use crate::config::Config;
+use crate::trove_feed::{Feed, Product};
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
 //use serde_json::Value::{Array, Object};
-use crate::config::Config;
-use crate::library::{Game, Launcher};
 use log::warn;
 use select::document::Document;
 use select::predicate::Attr; //, Class, Name, Predicate, Element};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct TimerOptions {
-    pub current_time: String,
-    pub next_addition_time: String,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "snake_case")]
-pub struct Url {
-    pub web: String,
-    pub bittorrent: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "snake_case")]
-pub struct Download {
-    pub machine_name: String,
-    pub name: String,
-    pub url: Url,
-    pub file_size: u64,
-    //small: u8,
-    pub md5: String,
-    pub size: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "kebab-case")]
-pub struct CarouselContent {
-    pub youtube_link: Option<Vec<String>>,
-    pub thumbnail: Vec<String>,
-    pub screenshot: Vec<String>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "kebab-case")]
-pub struct Publisher {
-    pub publisher_name: String,
-    pub publisher_uri: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "kebab-case")]
-pub struct Product {
-    pub background_image: Option<String>, // can be null
-    pub background_color: Option<String>, // can be null
-    pub carousel_content: CarouselContent,
-    pub date_added: u32,
-    pub description_text: String,
-    pub downloads: HashMap<String, Download>,
-    #[serde(skip_deserializing)]
-    pub downloaded: bool,
-    pub human_name: String,
-    pub humble_original: Option<bool>, // can be null
-    pub image: String,
-    pub logo: Option<String>,
-    #[serde(rename = "machine_name")]
-    pub machine_name: String,
-    pub marketing_blurb: Value, //Map {text, style} or String,
-    pub popularity: u16,
-    pub publishers: Value,                  // can be null Vec<Publisher>,
-    pub trove_showcase_css: Option<String>, // can be null
-    pub youtube_link: Option<String>,       // can be null
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
 pub struct Data {
-    pub all_access: Vec<String>,
-    pub download_platform_order: Vec<String>,
-    pub newly_added: Vec<Product>,
-    pub display_item_data: Value,
-    pub countdown_timer_options: TimerOptions,
-    pub standard_products: Vec<Product>,
+    pub machine_name: String,
+    pub human_name: String,
+    pub description: String,
+    pub downloaded: bool, // eventually HashMap
+    pub installed: bool,
+    pub executable: PathBuf,
+    pub downloads: HashMap<String, PathBuf>,
+    pub screenshots: Vec<String>,
+    pub trailer: Option<String>,
+    pub last_seen_on: String,
+    pub removed_from_trove: bool,
 }
 
 pub struct Trove {
-    pub data: Data,
+    pub feed: Feed,
     pub cache: PathBuf,
     pub downloads: PathBuf,
     pub root: PathBuf,
     pub number_downloaded: u32,
     pub total: u32,
-}
-
-impl From<&Trove> for Vec<Game> {
-    fn from(trove: &Trove) -> Vec<Game> {
-        trove
-            .data
-            .standard_products
-            .iter()
-            .map(|g| g.into())
-            .collect()
-    }
-}
-
-impl From<&Product> for Game {
-    fn from(p: &Product) -> Game {
-        Game {
-            human_name: p.human_name.clone(),
-            icon: "".to_string(),
-            installed: false,
-            installer: None,
-            launcher: Launcher::Trove,
-            machine_name: p.machine_name.clone(),
-            process: "".to_string(),
-            screenshots: None,
-            trailer: None,
-        }
-    }
+    //pub games: HashMap<String, Data>,
+    //pub installed_games: Vec<String>,
+    //pub downloaded_games: Vec<String>,
+    //pub not_downloaded_games: Vec<String>,
 }
 
 fn get_page(cache: &Cache, index: u8) -> Vec<Product> {
@@ -153,13 +68,13 @@ impl Trove {
             .next()
             .unwrap()
             .text();
-        let mut data: Data = serde_json::from_str(data.as_str()).unwrap();
+        let mut data: Feed = serde_json::from_str(data.as_str()).unwrap();
         data.standard_products = get_products(&cache);
         data.standard_products.sort_by_key(|p| p.date_added);
         data.standard_products.reverse();
 
         let mut trove = Trove {
-            data,
+            feed: data,
             downloads: config.system.downloads.clone(),
             cache: config.system.cache.clone(),
             root: config.trove.root.clone(),
@@ -168,7 +83,7 @@ impl Trove {
         };
         assert!(trove.root.exists());
         trove.update_download_status();
-        trove.data.standard_products.iter().for_each(|product| {
+        trove.feed.standard_products.iter().for_each(|product| {
             cache.retrieve(&product.image);
         });
         println!(
@@ -180,7 +95,7 @@ impl Trove {
 
     pub fn update_download_status(&mut self) {
         let mut count = 0;
-        for product in &mut self.data.standard_products {
+        for product in &mut self.feed.standard_products {
             let installer = Path::new(&product.downloads["windows"].url.web)
                 .file_name()
                 .unwrap()
@@ -192,18 +107,18 @@ impl Trove {
             }
         }
         self.number_downloaded = count;
-        self.total = self.data.standard_products.len() as u32;
+        self.total = self.feed.standard_products.len() as u32;
     }
 
     pub fn downloaded(&self) -> Vec<&Product> {
-        (&self.data.standard_products)
+        (&self.feed.standard_products)
             .iter()
             .filter(|p| p.downloaded)
             .collect()
     }
 
     pub fn not_downloaded(&self) -> Vec<&Product> {
-        (&self.data.standard_products)
+        (&self.feed.standard_products)
             .iter()
             .filter(|p| !p.downloaded)
             .collect()
@@ -216,7 +131,7 @@ impl Trove {
     pub fn stray_downloads(&self) -> Vec<PathBuf> {
         let downloads = Path::new(&self.downloads);
         assert!(downloads.exists());
-        (&self.data.standard_products)
+        (&self.feed.standard_products)
             .iter()
             .filter_map(|product| {
                 let installer = Path::new(&product.downloads["windows"].url.web)
