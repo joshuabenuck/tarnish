@@ -1,9 +1,8 @@
+/// This module handles the deserialization of the humble bundle monthly trove metadata feed.
+/// It provides operations that deal with the contents of the feed itself.
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
-use log::warn;
-use std::fs;
-use std::path::{Path, PathBuf};
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -55,8 +54,6 @@ pub struct Product {
     pub date_added: u32,
     pub description_text: String,
     pub downloads: HashMap<String, Download>,
-    #[serde(skip_deserializing)]
-    pub downloaded: bool,
     pub human_name: String,
     pub humble_original: Option<bool>, // can be null
     pub image: String,

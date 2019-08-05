@@ -12,6 +12,7 @@ mod config;
 mod library;
 mod trove;
 mod trove_feed;
+mod util;
 
 //use std::str;
 //use std::fs::{self};//, DirEntry};
@@ -20,6 +21,7 @@ use trove::Trove;
 use std::process::Command;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
+use crate::cache::{Cache};
 
 
 /*
@@ -53,7 +55,11 @@ use rustyline::Editor;
 fn main() {
     simple_logger::init_with_level(log::Level::Error).unwrap();
     let config = Config::new("./config.toml");
-    let mut trove = Trove::new(&config);
+    let cache = Cache::new(&config.system.cache);
+    let mut trove = match Trove::new(&config, &cache) {
+        Ok(unwrapped) => unwrapped,
+        Err(error) => panic!("Error constructing trove: {}", error),
+    };
     let stray = trove.stray_downloads();
     println!("In downloads: {}", stray.len());
     trove.move_downloads();
@@ -71,15 +77,26 @@ fn main() {
             Ok(line) => {
                 let mut words = line.split_ascii_whitespace();
                 match words.next() {
+                    Some("cache_all_metadata") => {
+                        if let Err(err) = trove.cache_all_metadata(&cache) {
+                            println!("cache_all_metadata: {}", err);
+                        }
+                    }
+                    Some("cache_thumbnails") => {
+                        trove.cache_thumbnails(&cache);
+                    }
+                    Some("cache_screenshots") => {
+                        trove.cache_screenshots(&cache);
+                    }
                     Some("update") => {
                         trove.update_download_status();
                     }
                     Some("download") => {
                         let number: usize = words.next().unwrap().parse::<usize>().unwrap();
-                        let product = trove.not_downloaded()[number];
-                        println!("Downloading: {}", trove.format(product));
+                        let game = trove.not_downloaded()[number];
+                        println!("Downloading: {}", trove.format(game));
                         let chrome = Command::new(r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe")
-                            .arg(trove.root.join(&product.downloads["windows"].url.web))
+                            .arg(trove.root.join(&game.downloads["windows"]))
                             .status()
                             .expect("Failed to launch Chrome.");
                     }
